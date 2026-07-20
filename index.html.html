@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Campeonato Society — Painel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --pitch-900:#0d2818; --pitch-700:#154d32; --pitch-500:#1f7a4d; --pitch-300:#59b483;
+    --chalk:#f5f7f3; --paper:#ffffff; --ink:#111a15; --ink-soft:#5b6b62; --line:#dfe6e0;
+    --amber:#e0a72e; --red:#c0392b; --gold:#8a6d1c;
+    --shadow: 0 1px 2px rgba(13,40,24,.06), 0 8px 24px rgba(13,40,24,.08);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--chalk);color:var(--ink);font-family:'Inter',system-ui,sans-serif;-webkit-font-smoothing:antialiased;}
+  .mono{font-family:'JetBrains Mono',monospace;}
+  #app{min-height:100vh;}
+  .login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;
+    background:radial-gradient(circle at 20% 15%, rgba(89,180,131,.18), transparent 45%),
+      radial-gradient(circle at 85% 80%, rgba(224,167,46,.12), transparent 40%), var(--pitch-900);}
+  .login-card{background:var(--paper);border-radius:18px;box-shadow:var(--shadow);max-width:460px;width:100%;overflow:hidden;}
+  .login-hero{background:linear-gradient(160deg,var(--pitch-700),var(--pitch-900));color:#fff;padding:32px 28px 26px;}
+  .login-hero .tag{font-size:11px;text-transform:uppercase;letter-spacing:.18em;color:var(--pitch-300);font-weight:700;}
+  .login-hero h1{font-family:'Bebas Neue',sans-serif;font-size:40px;line-height:1;margin:8px 0 4px;letter-spacing:.02em;}
+  .login-hero p{margin:0;color:#cfe3d7;font-size:13.5px;}
+  .scoreline{display:flex;gap:6px;margin-top:18px;}
+  .scoreline span{width:28px;height:4px;border-radius:2px;background:rgba(255,255,255,.18);}
+  .scoreline span.on{background:var(--amber);}
+  .login-body{padding:24px 28px 30px;}
+  .role-toggle{display:flex;background:var(--chalk);border-radius:12px;padding:4px;margin-bottom:20px;}
+  .role-toggle button{flex:1;border:none;background:transparent;padding:10px 6px;border-radius:9px;font-weight:600;font-size:12.5px;color:var(--ink-soft);cursor:pointer;transition:.15s;}
+  .role-toggle button.active{background:var(--pitch-700);color:#fff;}
+  label{display:block;font-size:12.5px;font-weight:600;color:var(--ink-soft);margin:14px 0 6px;}
+  select, input{width:100%;padding:11px 12px;border:1.5px solid var(--line);border-radius:10px;font-size:14.5px;font-family:inherit;background:#fff;color:var(--ink);}
+  select:focus, input:focus{outline:none;border-color:var(--pitch-500);}
+  .btn{margin-top:20px;width:100%;padding:12px;border:none;border-radius:10px;background:var(--pitch-700);color:#fff;font-weight:700;font-size:14.5px;cursor:pointer;}
+  .btn:hover{background:var(--pitch-900);}
+  .btn.ghost{background:transparent;color:var(--pitch-700);border:1.5px solid var(--line);}
+  .btn:disabled{opacity:.6;cursor:not-allowed;}
+  .err{color:var(--red);font-size:13px;margin-top:10px;font-weight:600;}
+  .hint{font-size:12px;color:var(--ink-soft);margin-top:8px;}
+  .topbar{background:var(--pitch-900);color:#fff;padding:14px 22px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10;}
+  .brand{display:flex;align-items:center;gap:10px;}
+  .brand .badge{width:34px;height:34px;border-radius:9px;background:linear-gradient(160deg,var(--pitch-500),var(--pitch-700));display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue';font-size:18px;}
+  .brand .name{font-family:'Bebas Neue';font-size:20px;letter-spacing:.03em;}
+  .brand .role{font-size:11px;color:var(--pitch-300);text-transform:uppercase;letter-spacing:.14em;font-weight:700;}
+  .topbar .exit{background:rgba(255,255,255,.08);color:#fff;border:1px solid rgba(255,255,255,.15);padding:8px 14px;border-radius:8px;font-size:13px;cursor:pointer;}
+  .tabs{display:flex;gap:4px;padding:14px 22px 0;overflow-x:auto;background:var(--paper);border-bottom:1px solid var(--line);}
+  .tab{padding:10px 16px;font-size:13.5px;font-weight:600;color:var(--ink-soft);border:none;background:none;cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap;}
+  .tab.active{color:var(--pitch-700);border-color:var(--pitch-500);}
+  .content{padding:22px;max-width:1080px;margin:0 auto;}
+  .panel{background:var(--paper);border-radius:14px;box-shadow:var(--shadow);padding:20px 22px;margin-bottom:18px;}
+  .panel h2{font-family:'Bebas Neue';font-size:22px;letter-spacing:.02em;margin:0 0 4px;color:var(--pitch-900);}
+  .panel .sub{font-size:13px;color:var(--ink-soft);margin:0 0 16px;}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  @media(max-width:640px){.grid2{grid-template-columns:1fr;}}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;}
+  th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-soft);padding:8px 10px;border-bottom:2px solid var(--line);}
+  td{padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:middle;}
+  tr:last-child td{border-bottom:none;}
+  .num{font-family:'JetBrains Mono';font-weight:700;text-align:center;}
+  .pill{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11.5px;font-weight:700;background:var(--chalk);color:var(--pitch-700);}
+  .pill.amber{background:#fbf0da;color:#8a6512;} .pill.red{background:#fbe3e0;color:var(--red);}
+  .code-chip{font-family:'JetBrains Mono';background:var(--pitch-900);color:var(--pitch-300);padding:4px 9px;border-radius:6px;font-size:12.5px;font-weight:700;letter-spacing:.05em;}
+  .icon-btn{border:1.5px solid var(--line);background:#fff;border-radius:7px;width:28px;height:28px;cursor:pointer;font-size:13px;color:var(--ink-soft);}
+  .icon-btn:hover{border-color:var(--pitch-500);color:var(--pitch-700);}
+  .empty{padding:26px;text-align:center;color:var(--ink-soft);font-size:13.5px;}
+  .flex-between{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;}
+  .avatar{width:34px;height:34px;border-radius:50%;object-fit:cover;background:var(--pitch-700);display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:700;vertical-align:middle;}
+  .group-badge{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:7px;background:var(--pitch-700);color:#fff;font-family:'Bebas Neue';font-size:14px;}
+  .match-card{border:1.5px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:10px;cursor:pointer;}
+  .match-card:hover{border-color:var(--pitch-500);}
+  .match-teams{display:flex;align-items:center;justify-content:center;gap:14px;font-family:'Bebas Neue';font-size:19px;}
+  .match-teams .score{background:var(--pitch-900);color:#fff;padding:4px 12px;border-radius:8px;font-family:'JetBrains Mono';font-size:16px;min-width:56px;text-align:center;}
+  .match-meta{text-align:center;font-size:11.5px;color:var(--ink-soft);margin-top:6px;text-transform:uppercase;letter-spacing:.08em;}
+  .modal-bg{position:fixed;inset:0;background:rgba(13,24,18,.55);display:flex;align-items:center;justify-content:center;padding:20px;z-index:50;}
+  .modal{background:#fff;border-radius:16px;max-width:520px;width:100%;max-height:88vh;overflow:auto;padding:24px;}
+  .modal h3{font-family:'Bebas Neue';font-size:22px;margin:0 0 14px;color:var(--pitch-900);}
+  .event-row{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px dashed var(--line);font-size:13px;}
+  .event-row .tag{width:64px;text-align:center;font-size:10.5px;font-weight:800;text-transform:uppercase;padding:3px 0;border-radius:5px;}
+  .tag.gol{background:#e2f1e8;color:var(--pitch-700);} .tag.amarelo{background:#fbf0da;color:#8a6512;} .tag.vermelho{background:#fbe3e0;color:var(--red);}
+  .close-x{float:right;border:none;background:none;font-size:18px;cursor:pointer;color:var(--ink-soft);}
+  .form-inline{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-top:12px;}
+  .form-inline > div{flex:1;min-width:110px;}
+  .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--pitch-900);color:#fff;padding:11px 20px;border-radius:10px;font-size:13.5px;font-weight:600;box-shadow:var(--shadow);z-index:100;}
+  .photo-input-wrap{display:flex;align-items:center;gap:10px;}
+  .photo-preview{width:56px;height:56px;border-radius:50%;object-fit:cover;background:var(--chalk);border:1.5px solid var(--line);}
+  .config-warning{background:#fbe3e0;color:var(--red);border-radius:10px;padding:14px 16px;font-size:13px;max-width:560px;margin:40px auto;}
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+/* ============================================================
+   CONFIGURAÇÃO DO SUPABASE — troque pelos valores do seu projeto
+   (Painel do Supabase > Settings > API)
+   ============================================================ */
+const SUPABASE_URL = "COLE_AQUI_A_URL_DO_SEU_PROJETO_SUPABASE";
+const SUPABASE_ANON_KEY = "COLE_AQUI_A_ANON_PUBLIC_KEY";
+const PHOTO_BUCKET = "player-photos";
+
+let supa = null;
+if(SUPABASE_URL.startsWith("http") && SUPABASE_ANON_KEY.length > 10){
+  supa = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+}
+
+let state = {
+  teams: [], players: [], matches: [], organizers: [],
+  config: { ownerCode: 'owner2027' },
+  loaded: false, session: null, tab: null, editingMatch: null,
+  toastMsg: null, pendingPhotoFile: null,
+};
+
+const GROUPS = ['A','B','C','D'];
+const PHASES = [
+  {id:'grupo', label:'Fase de grupos'},
+  {id:'quartas', label:'Quartas de final'},
+  {id:'semis', label:'Semifinal'},
+  {id:'terceiro', label:'Disputa de 3º lugar'},
+  {id:'final', label:'Final'},
+];
+
+function teamName(id){ const t = state.teams.find(t=>t.id===id); return t ? t.nome : '—'; }
+function initials(name){ return (name||'?').trim().split(/\s+/).slice(0,2).map(w=>w[0]).join('').toUpperCase(); }
+function randomCode(){ return Math.random().toString(36).slice(2,7).toUpperCase(); }
+function showToast(msg){ state.toastMsg = msg; render(); setTimeout(()=>{ state.toastMsg=null; render(); }, 2400); }
+
+function resizeImageToBlob(file, maxSize, quality){
+  maxSize = maxSize || 300; quality = quality || 0.75;
+  return new Promise((resolve, reject)=>{
+    const reader = new FileReader();
+    reader.onload = (e)=>{
+      const img = new Image();
+      img.onload = ()=>{
+        let w = img.width, h = img.height;
+        if(w > h){ if(w > maxSize){ h = Math.round(h * maxSize / w); w = maxSize; } }
+        else { if(h > maxSize){ w = Math.round(w * maxSize / h); h = maxSize; } }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        canvas.toBlob(blob=> resolve({blob, dataUrl: canvas.toDataURL('image/jpeg', quality)}), 'image/jpeg', quality);
+      };
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+async function uploadPlayerPhoto(file){
+  const {blob} = await resizeImageToBlob(file);
+  const path = `players/${Date.now()}_${Math.random().toString(36).slice(2,8)}.jpg`;
+  const {error} = await supa.storage.from(PHOTO_BUCKET).upload(path, blob, {contentType:'image/jpeg'});
+  if(error) throw error;
+  const {data} = supa.storage.from(PHOTO_BUCKET).getPublicUrl(path);
+  return data.publicUrl;
+}
+
+/* ---------- carregar tudo do Supabase ---------- */
+async function loadAll(){
+  const [teamsR, playersR, matchesR, eventsR, orgR, cfgR] = await Promise.all([
+    supa.from('teams').select('*').order('created_at'),
+    supa.from('players').select('*').order('created_at'),
+    supa.from('matches').select('*').order('data'),
+    supa.from('match_events').select('*'),
+    supa.from('organizers').select('*').order('created_at'),
+    supa.from('config').select('*').eq('id', 1),
+  ]);
+  state.teams = (teamsR.data||[]).map(t=>({id:t.id, nome:t.nome, grupo:t.grupo, responsavelNome:t.responsavel_nome, responsavelContato:t.responsavel_contato, codigoAcesso:t.codigo_acesso}));
+  state.players = (playersR.data||[]).map(p=>({id:p.id, teamId:p.team_id, nome:p.nome, numero:p.numero, posicao:p.posicao, foto:p.foto}));
+  state.organizers = (orgR.data||[]).map(o=>({id:o.id, nome:o.nome, usuario:o.usuario, senha:o.senha}));
+  state.config = { ownerCode: (cfgR.data && cfgR.data[0] && cfgR.data[0].owner_code) || 'owner2027' };
+  const evByMatch = {};
+  (eventsR.data||[]).forEach(e=>{
+    const ev = {id:e.id, teamId:e.team_id, playerId:e.player_id, tipo:e.tipo};
+    (evByMatch[e.match_id] = evByMatch[e.match_id]||[]).push(ev);
+  });
+  state.matches = (matchesR.data||[]).map(m=>({id:m.id, fase:m.fase, grupo:m.grupo, timeA:m.time_a, timeB:m.time_b, data:m.data, finalizado:m.finalizado, eventos: evByMatch[m.id]||[]}));
+  state.loaded = true;
+}
+
+/* ---------- estatísticas ---------- */
+function playerStats(playerId){
+  let gols=0, amarelos=0, vermelhos=0;
+  state.matches.forEach(m=>{ (m.eventos||[]).forEach(ev=>{
+    if(ev.playerId===playerId){ if(ev.tipo==='gol') gols++; if(ev.tipo==='amarelo') amarelos++; if(ev.tipo==='vermelho') vermelhos++; }
+  });});
+  return {gols, amarelos, vermelhos};
+}
+function groupStandings(grupo){
+  const teams = state.teams.filter(t=>t.grupo===grupo);
+  const table = {};
+  teams.forEach(t=> table[t.id] = {id:t.id, nome:t.nome, j:0,v:0,e:0,d:0,gp:0,gc:0,pts:0});
+  state.matches.filter(m=>m.fase==='grupo' && m.finalizado && m.grupo===grupo).forEach(m=>{
+    const golsA = (m.eventos||[]).filter(e=>e.tipo==='gol' && e.teamId===m.timeA).length;
+    const golsB = (m.eventos||[]).filter(e=>e.tipo==='gol' && e.teamId===m.timeB).length;
+    const A = table[m.timeA], B = table[m.timeB];
+    if(!A || !B) return;
+    A.j++; B.j++; A.gp+=golsA; A.gc+=golsB; B.gp+=golsB; B.gc+=golsA;
+    if(golsA>golsB){ A.v++; A.pts+=3; B.d++; } else if(golsB>golsA){ B.v++; B.pts+=3; A.d++; } else { A.e++; B.e++; A.pts++; B.pts++; }
+  });
+  return Object.values(table).sort((a,b)=> b.pts-a.pts || (b.gp-b.gc)-(a.gp-a.gc) || b.gp-a.gp);
+}
+function matchGoals(m){
+  const golsA = (m.eventos||[]).filter(e=>e.tipo==='gol' && e.teamId===m.timeA).length;
+  const golsB = (m.eventos||[]).filter(e=>e.tipo==='gol' && e.teamId===m.timeB).length;
+  return {golsA, golsB};
+}
+
+/* ---------- render ---------- */
+function render(){
+  const app = document.getElementById('app');
+  if(!supa){
+    app.innerHTML = `<div class="login-wrap"><div class="config-warning"><b>Configuração pendente.</b><br>Abra o arquivo <code>index.html</code> e substitua SUPABASE_URL e SUPABASE_ANON_KEY pelos dados do seu projeto Supabase (Settings → API). Veja o README.md para o passo a passo.</div></div>`;
+    return;
+  }
+  if(!state.session){ app.innerHTML = renderLogin(); attachLoginEvents(); return; }
+  app.innerHTML = renderShell();
+  attachShellEvents();
+}
+window.render = render;
+
+/* ================= LOGIN ================= */
+let loginRole = 'organizer';
+let loginError = '';
+function renderLogin(){
+  const teamOptions = state.teams.map(t=>`<option value="${t.id}">${t.nome} (Grupo ${t.grupo||'-'})</option>`).join('');
+  let fields = '';
+  if(loginRole==='owner'){
+    fields = `<label>Código de proprietário</label><input id="ownerCodeInput" type="password" placeholder="Digite o código">
+      <div class="hint">Código padrão inicial: <b>owner2027</b> — altere em Configurações depois de entrar.</div>`;
+  } else if(loginRole==='organizer'){
+    fields = `<label>Usuário</label><input id="orgUserInput" type="text" placeholder="Usuário fornecido pelo proprietário">
+      <label>Senha</label><input id="orgPassInput" type="password" placeholder="Senha">
+      <div class="hint">Contas de organizador são criadas pelo proprietário do sistema.</div>`;
+  } else {
+    fields = `<label>Selecione seu time</label><select id="teamSelect">${teamOptions || '<option value="">Nenhum time cadastrado ainda</option>'}</select>
+      <label>Código de acesso do time</label><input id="teamCodeInput" type="text" placeholder="Ex: A1B2C">
+      <div class="hint">O código é fornecido pelo organizador do campeonato.</div>`;
+  }
+  return `
+  <div class="login-wrap"><div class="login-card">
+    <div class="login-hero">
+      <div class="tag">Campeonato de futebol society</div>
+      <h1>Painel do Campeonato</h1>
+      <p>Cadastro de times, atletas, súmulas e classificação — tudo em um só lugar.</p>
+      <div class="scoreline"><span class="on"></span><span class="on"></span><span></span><span></span><span></span></div>
+    </div>
+    <div class="login-body">
+      <div class="role-toggle">
+        <button data-role="owner" class="${loginRole==='owner'?'active':''}">Proprietário</button>
+        <button data-role="organizer" class="${loginRole==='organizer'?'active':''}">Organizador</button>
+        <button data-role="manager" class="${loginRole==='manager'?'active':''}">Responsável de time</button>
+      </div>
+      ${fields}
+      ${loginError ? `<div class="err">${loginError}</div>` : ''}
+      <button class="btn" id="loginBtn">Entrar</button>
+    </div>
+  </div></div>`;
+}
+function attachLoginEvents(){
+  document.querySelectorAll('.role-toggle button').forEach(b=>{ b.onclick = ()=>{ loginRole = b.dataset.role; loginError=''; render(); }; });
+  const btn = document.getElementById('loginBtn');
+  if(btn) btn.onclick = ()=>{
+    if(loginRole==='owner'){
+      const val = document.getElementById('ownerCodeInput').value.trim();
+      if(val === state.config.ownerCode){ state.session = { role:'owner' }; state.tab='organizadores'; loginError=''; render(); }
+      else { loginError = 'Código incorreto.'; render(); }
+    } else if(loginRole==='organizer'){
+      const user = document.getElementById('orgUserInput').value.trim();
+      const pass = document.getElementById('orgPassInput').value;
+      const org = state.organizers.find(o=>o.usuario===user && o.senha===pass);
+      if(org){ state.session = { role:'organizer', organizerId: org.id }; state.tab='times'; loginError=''; render(); }
+      else { loginError = 'Usuário ou senha inválidos.'; render(); }
+    } else {
+      const teamId = document.getElementById('teamSelect').value;
+      const code = document.getElementById('teamCodeInput').value.trim().toUpperCase();
+      const team = state.teams.find(t=>t.id===teamId);
+      if(team && team.codigoAcesso === code){ state.session = { role:'manager', teamId }; state.tab='meutime'; loginError=''; render(); }
+      else { loginError = 'Time ou código inválido.'; render(); }
+    }
+  };
+}
+
+/* ================= SHELL ================= */
+function renderShell(){
+  const role = state.session.role;
+  let tabs, roleLabel;
+  if(role==='owner'){ tabs = [['organizadores','Organizadores'],['config','Configurações']]; roleLabel='Proprietário'; }
+  else if(role==='organizer'){
+    tabs = [['times','Times'],['atletas','Atletas'],['jogos','Jogos & Súmula'],['classificacao','Classificação']];
+    const org = state.organizers.find(o=>o.id===state.session.organizerId);
+    roleLabel = 'Organizador — ' + (org ? org.nome : '');
+  } else { tabs = [['meutime','Meu time'],['jogos','Jogos'],['classificacao','Classificação']]; roleLabel = 'Responsável — ' + teamName(state.session.teamId); }
+  if(!state.tab || !tabs.find(t=>t[0]===state.tab)) state.tab = tabs[0][0];
+  return `
+    <div class="topbar"><div class="brand"><div class="badge">S</div><div><div class="name">Campeonato Society</div><div class="role">${roleLabel}</div></div></div>
+      <button class="exit" id="exitBtn">Sair</button></div>
+    <div class="tabs">${tabs.map(([id,label])=>`<button class="tab ${state.tab===id?'active':''}" data-tab="${id}">${label}</button>`).join('')}</div>
+    <div class="content">${renderTab()}</div>
+    ${state.toastMsg ? `<div class="toast">${state.toastMsg}</div>` : ''}`;
+}
+function renderTab(){
+  const role = state.session.role;
+  if(role==='owner'){ if(state.tab==='organizadores') return renderOrganizadoresTab(); if(state.tab==='config') return renderOwnerConfigTab(); }
+  else if(role==='organizer'){
+    if(state.tab==='times') return renderTimesTab();
+    if(state.tab==='atletas') return renderAtletasTab(null, false);
+    if(state.tab==='jogos') return renderJogosTab(true);
+    if(state.tab==='classificacao') return renderClassificacaoTab();
+  } else {
+    if(state.tab==='meutime') return renderAtletasTab(state.session.teamId, true);
+    if(state.tab==='jogos') return renderJogosTab(false);
+    if(state.tab==='classificacao') return renderClassificacaoTab();
+  }
+  return '';
+}
+function attachShellEvents(){
+  document.getElementById('exitBtn').onclick = ()=>{ state.session=null; state.editingMatch=null; render(); };
+  document.querySelectorAll('.tab').forEach(b=>{ b.onclick = ()=>{ state.tab = b.dataset.tab; render(); }; });
+  attachTabEvents();
+}
+
+/* ================= ORGANIZADORES (owner) ================= */
+function renderOrganizadoresTab(){
+  const rows = state.organizers.map(o=>`<tr><td><b>${o.nome}</b></td><td class="mono">${o.usuario}</td><td class="mono">${o.senha}</td><td><button class="icon-btn" data-del-org="${o.id}">✕</button></td></tr>`).join('');
+  return `
+  <div class="panel"><h2>Criar conta de organizador</h2>
+    <p class="sub">Somente organizadores podem cadastrar times e atletas.</p>
+    <div class="grid2">
+      <div><label>Nome</label><input id="newOrgNome" placeholder="Nome do organizador"></div>
+      <div><label>Usuário</label><input id="newOrgUser" placeholder="Ex: joao.organizador"></div>
+      <div><label>Senha</label><input id="newOrgPass" placeholder="Defina uma senha" value="${randomCode()}"></div>
+    </div>
+    <button class="btn" id="addOrgBtn" style="max-width:220px;">Criar organizador</button>
+  </div>
+  <div class="panel"><h2>Organizadores cadastrados (${state.organizers.length})</h2>
+    ${state.organizers.length ? `<table><thead><tr><th>Nome</th><th>Usuário</th><th>Senha</th><th></th></tr></thead><tbody>${rows}</tbody></table>` : `<div class="empty">Nenhum organizador cadastrado ainda.</div>`}
+  </div>`;
+}
+function renderOwnerConfigTab(){
+  return `<div class="panel"><h2>Código do proprietário</h2><p class="sub">Guarde com segurança.</p>
+    <label>Novo código</label><input id="newOwnerCode" value="${state.config.ownerCode}">
+    <button class="btn" id="saveOwnerCodeBtn" style="max-width:200px;">Salvar código</button></div>`;
+}
+
+/* ================= TIMES ================= */
+function renderTimesTab(){
+  const rows = state.teams.map(t=>`<tr>
+      <td><span class="group-badge">${t.grupo||'-'}</span></td>
+      <td><b>${t.nome}</b></td>
+      <td>${t.responsavelNome||'—'}<br><span style="color:var(--ink-soft);font-size:12px;">${t.responsavelContato||''}</span></td>
+      <td><span class="code-chip">${t.codigoAcesso}</span></td>
+      <td class="num">${state.players.filter(p=>p.teamId===t.id).length}</td>
+      <td><button class="icon-btn" data-del-team="${t.id}">✕</button></td>
+    </tr>`).join('');
+  return `
+  <div class="panel"><h2>Cadastrar time</h2>
+    <p class="sub">Um código de acesso é gerado automaticamente para o painel do responsável.</p>
+    <div class="grid2">
+      <div><label>Nome do time</label><input id="newTeamNome" placeholder="Ex: Atlético do Bairro"></div>
+      <div><label>Grupo</label><select id="newTeamGrupo">${GROUPS.map(g=>`<option value="${g}">Grupo ${g}</option>`).join('')}</select></div>
+      <div><label>Nome do responsável</label><input id="newTeamResp" placeholder="Nome completo"></div>
+      <div><label>Contato do responsável</label><input id="newTeamContato" placeholder="WhatsApp / e-mail"></div>
+    </div>
+    <button class="btn" id="addTeamBtn" style="max-width:220px;">Cadastrar time</button>
+  </div>
+  <div class="panel"><div class="flex-between"><h2>Times cadastrados (${state.teams.length})</h2></div>
+    ${state.teams.length ? `<table><thead><tr><th>Grupo</th><th>Time</th><th>Responsável</th><th>Código</th><th>Atletas</th><th></th></tr></thead><tbody>${rows}</tbody></table>` : `<div class="empty">Nenhum time cadastrado ainda.</div>`}
+  </div>`;
+}
+
+/* ================= ATLETAS ================= */
+function renderAtletasTab(fixedTeamId, readOnly){
+  const teamId = fixedTeamId || state._selectedTeamForPlayers || (state.teams[0] && state.teams[0].id);
+  state._selectedTeamForPlayers = teamId;
+  const team = state.teams.find(t=>t.id===teamId);
+  if(!state.teams.length) return `<div class="panel"><div class="empty">Nenhum time cadastrado ainda.</div></div>`;
+  const topBlock = !fixedTeamId ? `
+    <div class="panel"><h2>Atletas por time</h2><p class="sub">Escolha um time para ver e editar o elenco.</p>
+      <label>Selecione o time</label><select id="playerTeamSelect">${state.teams.map(t=>`<option value="${t.id}" ${t.id===teamId?'selected':''}>${t.nome}</option>`).join('')}</select>
+    </div>` : `<div class="panel"><h2>${team ? team.nome : 'Meu time'}</h2><p class="sub">Elenco cadastrado pelo organizador do campeonato.</p></div>`;
+  const players = state.players.filter(p=>p.teamId===teamId);
+  const rows = players.map(p=>{
+    const s = playerStats(p.id);
+    const avatar = p.foto ? `<img class="avatar" src="${p.foto}">` : `<span class="avatar">${initials(p.nome)}</span>`;
+    return `<tr><td>${avatar}</td><td class="num">${p.numero||'-'}</td><td><b>${p.nome}</b></td><td>${p.posicao||'—'}</td>
+      <td class="num">${s.gols}</td><td class="num"><span class="pill amber">${s.amarelos}</span></td><td class="num"><span class="pill red">${s.vermelhos}</span></td>
+      ${readOnly ? '' : `<td><button class="icon-btn" data-del-player="${p.id}">✕</button></td>`}</tr>`;
+  }).join('');
+  const addForm = readOnly ? '' : `
+  <div class="panel"><h2>Adicionar atleta</h2>
+    <div class="grid2">
+      <div><label>Nome</label><input id="newPlayerNome" placeholder="Nome do atleta"></div>
+      <div><label>Número</label><input id="newPlayerNumero" placeholder="Ex: 10"></div>
+      <div><label>Posição</label><input id="newPlayerPosicao" placeholder="Ex: Fixo, Ala, Pivô, Goleiro"></div>
+      <div><label>Foto (opcional)</label><div class="photo-input-wrap">
+        <img id="photoPreview" class="photo-preview" src="" style="display:none;">
+        <input id="newPlayerFoto" type="file" accept="image/*"></div>
+      </div>
+    </div>
+    <button class="btn" id="addPlayerBtn" style="max-width:220px;">Adicionar atleta</button>
+  </div>`;
+  return `${topBlock}${addForm}
+  <div class="panel"><div class="flex-between"><h2>Elenco (${players.length})</h2></div>
+    ${players.length ? `<table><thead><tr><th></th><th>Nº</th><th>Nome</th><th>Posição</th><th>Gols</th><th>Amarelos</th><th>Vermelhos</th>${readOnly?'':'<th></th>'}</tr></thead><tbody>${rows}</tbody></table>` : `<div class="empty">Nenhum atleta cadastrado neste time.</div>`}
+  </div>`;
+}
+
+/* ================= JOGOS ================= */
+function renderJogosTab(isOrganizer){
+  const createForm = isOrganizer ? `
+  <div class="panel"><h2>Criar jogo</h2>
+    <div class="form-inline">
+      <div><label>Fase</label><select id="matchFase">${PHASES.map(p=>`<option value="${p.id}">${p.label}</option>`).join('')}</select></div>
+      <div><label>Grupo</label><select id="matchGrupo">${GROUPS.map(g=>`<option value="${g}">Grupo ${g}</option>`).join('')}</select></div>
+      <div><label>Time A</label><select id="matchTeamA">${state.teams.map(t=>`<option value="${t.id}">${t.nome}</option>`).join('')}</select></div>
+      <div><label>Time B</label><select id="matchTeamB">${state.teams.map(t=>`<option value="${t.id}">${t.nome}</option>`).join('')}</select></div>
+      <div><label>Data</label><input id="matchData" type="date"></div>
+    </div>
+    <button class="btn" id="addMatchBtn" style="max-width:180px;">Criar jogo</button>
+  </div>` : '';
+  const sorted = [...state.matches].sort((a,b)=> (a.data||'').localeCompare(b.data||''));
+  const cards = sorted.map(m=>{
+    const {golsA, golsB} = matchGoals(m);
+    const faseLabel = PHASES.find(p=>p.id===m.fase);
+    return `<div class="match-card" data-open-match="${m.id}">
+      <div class="match-teams"><span>${teamName(m.timeA)}</span><span class="score">${m.finalizado ? golsA+' : '+golsB : 'vs'}</span><span>${teamName(m.timeB)}</span></div>
+      <div class="match-meta">${faseLabel?faseLabel.label:m.fase}${m.grupo && m.fase==='grupo' ? ' · Grupo '+m.grupo : ''} · ${m.data || 'sem data'} ${m.finalizado ? '· Encerrado' : '· Em aberto'}</div>
+    </div>`;
+  }).join('');
+  return `${createForm}
+  <div class="panel"><h2>Jogos (${state.matches.length})</h2>
+    <p class="sub">${isOrganizer ? 'Clique em um jogo para lançar o placar, gols e cartões.' : 'Acompanhe os resultados e súmulas dos jogos.'}</p>
+    ${sorted.length ? cards : `<div class="empty">Nenhum jogo cadastrado ainda.</div>`}
+  </div>
+  ${state.editingMatch ? renderMatchModal(state.editingMatch, isOrganizer) : ''}`;
+}
+function renderMatchModal(matchId, isOrganizer){
+  const m = state.matches.find(mm=>mm.id===matchId);
+  if(!m) return '';
+  const {golsA, golsB} = matchGoals(m);
+  const eventos = (m.eventos||[]).slice().reverse();
+  const eventRows = eventos.map(ev=>{
+    const p = state.players.find(pp=>pp.id===ev.playerId);
+    return `<div class="event-row"><span class="tag ${ev.tipo}">${ev.tipo}</span><span>${p?p.nome:'—'} <span style="color:var(--ink-soft);">(${teamName(ev.teamId)})</span></span>${isOrganizer?`<button class="icon-btn" style="margin-left:auto;" data-del-event="${ev.id}">✕</button>`:''}</div>`;
+  }).join('') || `<div class="empty">Nenhum evento lançado.</div>`;
+  const faseLabel = PHASES.find(p=>p.id===m.fase);
+  return `<div class="modal-bg" id="modalBg"><div class="modal">
+    <button class="close-x" id="closeModal">✕</button>
+    <h3>${teamName(m.timeA)} ${golsA} : ${golsB} ${teamName(m.timeB)}</h3>
+    <p class="sub" style="margin-top:-6px;">${faseLabel?faseLabel.label:m.fase} ${m.data ? '· '+m.data : ''}</p>
+    ${isOrganizer ? `<div class="form-inline">
+      <div><label>Time</label><select id="evTeam"><option value="${m.timeA}">${teamName(m.timeA)}</option><option value="${m.timeB}">${teamName(m.timeB)}</option></select></div>
+      <div><label>Atleta</label><select id="evPlayer"></select></div>
+      <div><label>Evento</label><select id="evTipo"><option value="gol">Gol</option><option value="amarelo">Cartão amarelo</option><option value="vermelho">Cartão vermelho</option></select></div>
+    </div><button class="btn" id="addEventBtn" style="max-width:160px;">Lançar evento</button>` : ''}
+    <div style="margin-top:16px;">${eventRows}</div>
+    ${isOrganizer ? `<button class="btn ${m.finalizado?'ghost':''}" id="toggleFinalBtn" style="margin-top:16px;">${m.finalizado?'Reabrir jogo':'Encerrar jogo'}</button>` : ''}
+  </div></div>`;
+}
+
+/* ================= CLASSIFICAÇÃO ================= */
+function renderClassificacaoTab(){
+  const groupTables = GROUPS.map(g=>{
+    const rows = groupStandings(g);
+    if(!rows.length) return '';
+    return `<div class="panel"><h2>Grupo ${g}</h2><table><thead><tr><th>Time</th><th class="num">J</th><th class="num">V</th><th class="num">E</th><th class="num">D</th><th class="num">GP</th><th class="num">GC</th><th class="num">SG</th><th class="num">Pts</th></tr></thead>
+      <tbody>${rows.map(r=>`<tr><td><b>${r.nome}</b></td><td class="num">${r.j}</td><td class="num">${r.v}</td><td class="num">${r.e}</td><td class="num">${r.d}</td><td class="num">${r.gp}</td><td class="num">${r.gc}</td><td class="num">${r.gp-r.gc}</td><td class="num mono">${r.pts}</td></tr>`).join('')}</tbody></table></div>`;
+  }).join('');
+  const artilheiros = state.players.map(p=>({p, s:playerStats(p.id)})).filter(x=>x.s.gols>0).sort((a,b)=>b.s.gols-a.s.gols).slice(0,15);
+  const cartoes = state.players.map(p=>({p, s:playerStats(p.id)})).filter(x=>x.s.amarelos+x.s.vermelhos>0).sort((a,b)=>(b.s.amarelos+b.s.vermelhos*2)-(a.s.amarelos+a.s.vermelhos*2)).slice(0,15);
+  return `${groupTables || `<div class="panel"><div class="empty">Nenhum time cadastrado ainda.</div></div>`}
+  <div class="panel"><h2>Artilharia</h2>
+    ${artilheiros.length ? `<table><thead><tr><th>#</th><th></th><th>Atleta</th><th>Time</th><th class="num">Gols</th></tr></thead>
+    <tbody>${artilheiros.map((x,i)=>`<tr><td class="num">${i+1}</td><td>${x.p.foto?`<img class="avatar" src="${x.p.foto}">`:`<span class="avatar">${initials(x.p.nome)}</span>`}</td><td><b>${x.p.nome}</b></td><td>${teamName(x.p.teamId)}</td><td class="num mono">${x.s.gols}</td></tr>`).join('')}</tbody></table>` : `<div class="empty">Nenhum gol registrado ainda.</div>`}
+  </div>
+  <div class="panel"><h2>Cartões</h2>
+    ${cartoes.length ? `<table><thead><tr><th></th><th>Atleta</th><th>Time</th><th class="num">Amarelos</th><th class="num">Vermelhos</th></tr></thead>
+    <tbody>${cartoes.map(x=>`<tr><td>${x.p.foto?`<img class="avatar" src="${x.p.foto}">`:`<span class="avatar">${initials(x.p.nome)}</span>`}</td><td><b>${x.p.nome}</b></td><td>${teamName(x.p.teamId)}</td><td class="num"><span class="pill amber">${x.s.amarelos}</span></td><td class="num"><span class="pill red">${x.s.vermelhos}</span></td></tr>`).join('')}</tbody></table>` : `<div class="empty">Nenhum cartão registrado ainda.</div>`}
+  </div>`;
+}
+
+/* ================= EVENTOS ================= */
+function attachTabEvents(){
+  const addOrgBtn = document.getElementById('addOrgBtn');
+  if(addOrgBtn) addOrgBtn.onclick = async ()=>{
+    const nome = document.getElementById('newOrgNome').value.trim();
+    const usuario = document.getElementById('newOrgUser').value.trim();
+    const senha = document.getElementById('newOrgPass').value.trim();
+    if(!nome || !usuario || !senha){ showToast('Preencha nome, usuário e senha.'); return; }
+    const {data, error} = await supa.from('organizers').insert({nome, usuario, senha}).select().single();
+    if(error){ showToast('Já existe um organizador com esse usuário.'); return; }
+    state.organizers.push({id:data.id, nome:data.nome, usuario:data.usuario, senha:data.senha});
+    showToast('Organizador criado.'); render();
+  };
+  document.querySelectorAll('[data-del-org]').forEach(b=> b.onclick = async ()=>{
+    if(!confirm('Remover este organizador?')) return;
+    await supa.from('organizers').delete().eq('id', b.dataset.delOrg);
+    state.organizers = state.organizers.filter(o=>o.id!==b.dataset.delOrg); render();
+  });
+  const saveOwnerCodeBtn = document.getElementById('saveOwnerCodeBtn');
+  if(saveOwnerCodeBtn) saveOwnerCodeBtn.onclick = async ()=>{
+    const val = document.getElementById('newOwnerCode').value.trim();
+    if(!val){ showToast('Digite um código válido.'); return; }
+    await supa.from('config').update({owner_code:val}).eq('id',1);
+    state.config.ownerCode = val; showToast('Código atualizado.'); render();
+  };
+
+  const addTeamBtn = document.getElementById('addTeamBtn');
+  if(addTeamBtn) addTeamBtn.onclick = async ()=>{
+    const nome = document.getElementById('newTeamNome').value.trim();
+    const grupo = document.getElementById('newTeamGrupo').value;
+    const responsavelNome = document.getElementById('newTeamResp').value.trim();
+    const responsavelContato = document.getElementById('newTeamContato').value.trim();
+    if(!nome){ showToast('Digite o nome do time.'); return; }
+    const codigoAcesso = randomCode();
+    const {data, error} = await supa.from('teams').insert({nome, grupo, responsavel_nome:responsavelNome, responsavel_contato:responsavelContato, codigo_acesso:codigoAcesso}).select().single();
+    if(error){ showToast('Erro ao cadastrar time.'); return; }
+    state.teams.push({id:data.id, nome:data.nome, grupo:data.grupo, responsavelNome:data.responsavel_nome, responsavelContato:data.responsavel_contato, codigoAcesso:data.codigo_acesso});
+    showToast('Time cadastrado. Código: ' + codigoAcesso); render();
+  };
+  document.querySelectorAll('[data-del-team]').forEach(b=> b.onclick = async ()=>{
+    if(!confirm('Remover este time e seus atletas?')) return;
+    await supa.from('teams').delete().eq('id', b.dataset.delTeam);
+    state.teams = state.teams.filter(t=>t.id!==b.dataset.delTeam);
+    state.players = state.players.filter(p=>p.teamId!==b.dataset.delTeam); render();
+  });
+
+  const teamSelectEl = document.getElementById('playerTeamSelect');
+  if(teamSelectEl) teamSelectEl.onchange = ()=>{ state._selectedTeamForPlayers = teamSelectEl.value; render(); };
+
+  const fotoInput = document.getElementById('newPlayerFoto');
+  if(fotoInput) fotoInput.onchange = async ()=>{
+    const file = fotoInput.files[0];
+    if(!file) return;
+    state.pendingPhotoFile = file;
+    try{
+      const {dataUrl} = await resizeImageToBlob(file);
+      const preview = document.getElementById('photoPreview');
+      if(preview){ preview.src = dataUrl; preview.style.display = 'inline-block'; }
+    }catch(e){ showToast('Não foi possível carregar essa imagem.'); }
+  };
+
+  const addPlayerBtn = document.getElementById('addPlayerBtn');
+  if(addPlayerBtn) addPlayerBtn.onclick = async ()=>{
+    const nome = document.getElementById('newPlayerNome').value.trim();
+    const numero = document.getElementById('newPlayerNumero').value.trim();
+    const posicao = document.getElementById('newPlayerPosicao').value.trim();
+    const teamId = state._selectedTeamForPlayers;
+    if(!nome || !teamId){ showToast('Digite o nome do atleta.'); return; }
+    addPlayerBtn.disabled = true; addPlayerBtn.textContent = 'Salvando...';
+    let fotoUrl = null;
+    try{
+      if(state.pendingPhotoFile) fotoUrl = await uploadPlayerPhoto(state.pendingPhotoFile);
+    }catch(e){ showToast('Falha no upload da foto — atleta salvo sem foto.'); }
+    const {data, error} = await supa.from('players').insert({team_id:teamId, nome, numero, posicao, foto:fotoUrl}).select().single();
+    addPlayerBtn.disabled = false; addPlayerBtn.textContent = 'Adicionar atleta';
+    if(error){ showToast('Erro ao adicionar atleta.'); return; }
+    state.players.push({id:data.id, teamId:data.team_id, nome:data.nome, numero:data.numero, posicao:data.posicao, foto:data.foto});
+    state.pendingPhotoFile = null;
+    showToast('Atleta adicionado.'); render();
+  };
+  document.querySelectorAll('[data-del-player]').forEach(b=> b.onclick = async ()=>{
+    if(!confirm('Remover este atleta?')) return;
+    await supa.from('players').delete().eq('id', b.dataset.delPlayer);
+    state.players = state.players.filter(p=>p.id!==b.dataset.delPlayer); render();
+  });
+
+  const addMatchBtn = document.getElementById('addMatchBtn');
+  if(addMatchBtn) addMatchBtn.onclick = async ()=>{
+    const fase = document.getElementById('matchFase').value;
+    const grupo = document.getElementById('matchGrupo').value;
+    const timeA = document.getElementById('matchTeamA').value;
+    const timeB = document.getElementById('matchTeamB').value;
+    const data_ = document.getElementById('matchData').value || null;
+    if(timeA===timeB){ showToast('Escolha dois times diferentes.'); return; }
+    const {data, error} = await supa.from('matches').insert({fase, grupo: fase==='grupo'?grupo:null, time_a:timeA, time_b:timeB, data:data_, finalizado:false}).select().single();
+    if(error){ showToast('Erro ao criar jogo.'); return; }
+    state.matches.push({id:data.id, fase:data.fase, grupo:data.grupo, timeA:data.time_a, timeB:data.time_b, data:data.data, finalizado:false, eventos:[]});
+    showToast('Jogo criado.'); render();
+  };
+
+  document.querySelectorAll('[data-open-match]').forEach(b=> b.onclick = ()=>{ state.editingMatch = b.dataset.openMatch; render(); });
+  const closeModal = document.getElementById('closeModal');
+  if(closeModal) closeModal.onclick = ()=>{ state.editingMatch=null; render(); };
+  const modalBg = document.getElementById('modalBg');
+  if(modalBg) modalBg.onclick = (e)=>{ if(e.target.id==='modalBg'){ state.editingMatch=null; render(); } };
+
+  const evTeamSel = document.getElementById('evTeam');
+  const evPlayerSel = document.getElementById('evPlayer');
+  function refreshPlayerOptions(){
+    if(!evTeamSel || !evPlayerSel) return;
+    const teamId = evTeamSel.value;
+    const opts = state.players.filter(p=>p.teamId===teamId).map(p=>`<option value="${p.id}">${p.nome}</option>`).join('');
+    evPlayerSel.innerHTML = opts || '<option value="">Sem atletas cadastrados</option>';
+  }
+  if(evTeamSel){ refreshPlayerOptions(); evTeamSel.onchange = refreshPlayerOptions; }
+
+  const addEventBtn = document.getElementById('addEventBtn');
+  if(addEventBtn) addEventBtn.onclick = async ()=>{
+    const m = state.matches.find(mm=>mm.id===state.editingMatch);
+    if(!m) return;
+    const teamId = document.getElementById('evTeam').value;
+    const playerId = document.getElementById('evPlayer').value;
+    const tipo = document.getElementById('evTipo').value;
+    if(!playerId){ showToast('Cadastre atletas para esse time antes.'); return; }
+    const {data, error} = await supa.from('match_events').insert({match_id:m.id, team_id:teamId, player_id:playerId, tipo}).select().single();
+    if(error){ showToast('Erro ao lançar evento.'); return; }
+    m.eventos = m.eventos || [];
+    m.eventos.push({id:data.id, teamId:data.team_id, playerId:data.player_id, tipo:data.tipo});
+    render();
+  };
+  document.querySelectorAll('[data-del-event]').forEach(b=> b.onclick = async ()=>{
+    const m = state.matches.find(mm=>mm.id===state.editingMatch);
+    if(!m) return;
+    await supa.from('match_events').delete().eq('id', b.dataset.delEvent);
+    m.eventos = (m.eventos||[]).filter(ev=>ev.id!==b.dataset.delEvent); render();
+  });
+  const toggleFinalBtn = document.getElementById('toggleFinalBtn');
+  if(toggleFinalBtn) toggleFinalBtn.onclick = async ()=>{
+    const m = state.matches.find(mm=>mm.id===state.editingMatch);
+    if(!m) return;
+    await supa.from('matches').update({finalizado: !m.finalizado}).eq('id', m.id);
+    m.finalizado = !m.finalizado; render();
+  };
+}
+
+(async function boot(){
+  document.getElementById('app').innerHTML = `<div class="login-wrap"><div style="color:#fff;font-family:'Bebas Neue';font-size:22px;">Carregando painel…</div></div>`;
+  if(supa) await loadAll();
+  render();
+})();
+</script>
+</body>
+</html>
